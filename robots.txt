@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.barogo-mapo.example.com/sitemap.xml
+Sitemap: https://dongjak-massage1.pages.dev/sitemap.xml
