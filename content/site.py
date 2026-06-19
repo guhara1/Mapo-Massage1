@@ -10,6 +10,10 @@ PHONE_DISPLAY = "0508-202-4719"
 TELEGRAM_BUILD = "https://t.me/googleseolab"   # 웹사이트 제작문의
 TELEGRAM_PARTNER = "https://t.me/googleseolab"  # 제휴문의
 
+# IndexNow 키 — 빙·네이버 즉시 색인 통보용.
+# 빌드 시 루트에 "{INDEXNOW_KEY}.txt" 파일이 생성되며 그 안에 키가 들어간다.
+INDEXNOW_KEY = "b1d3ef8652620847220a3db043379c67"
+
 # 상단 메뉴 — 하위 메뉴에는 키워드를 반복하지 않고 지역명·역명만 표시한다.
 NAV = [
     ("마포 홈", "/", []),

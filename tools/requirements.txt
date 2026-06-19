@@ -1,0 +1,4 @@
+# tools/indexnow.py 는 표준 라이브러리만 사용 — 설치 불필요.
+# tools/google_indexing.py(선택) 만 아래 패키지가 필요합니다.
+google-auth>=2.0.0
+requests>=2.28.0

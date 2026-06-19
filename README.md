@@ -47,9 +47,48 @@ python3 build.py
 - 푸터의 **웹사이트 제작문의 / 제휴문의** 오렌지 버튼은 텔레그램으로 연결
   (`TELEGRAM_BUILD`, `TELEGRAM_PARTNER` 값을 실제 채널로 변경)
 
+## 색인(인덱싱) 자동화
+
+빌드 시 색인용 파일이 자동 생성됩니다.
+
+- `sitemap.xml` — `lastmod`·`changefreq`·`priority` 포함 (메인 1.0 / 그 외 0.8)
+- `rss.xml` — 색인 대상 페이지 피드 (빠른 발견용, `<head>`에 alternate 링크)
+- `robots.txt` — 전체 허용 + 구글봇·네이버 Yeti·빙봇 명시 + 사이트맵
+- `{INDEXNOW_KEY}.txt` — IndexNow 소유 확인 키 파일 (루트)
+
+### IndexNow — 빙·네이버 즉시 통보 (글 올릴 때마다)
+
+IndexNow는 빙·네이버·Yandex가 참여합니다(구글은 미참여).
+표준 라이브러리만 쓰므로 설치가 필요 없습니다.
+
+```bash
+# 전체 일괄 통보 (최초 1회 / 사이트맵 기준)
+python3 tools/indexnow.py
+
+# 새 글·수정 글만 즉시 통보
+python3 tools/indexnow.py /seoul/mapo/sangam-dong-chuljangmassage/
+
+# 미리보기
+python3 tools/indexnow.py --dry-run
+```
+
+> 통보가 인증되려면 배포된 사이트 루트에 `{INDEXNOW_KEY}.txt`가 떠 있어야 합니다.
+> 키 변경 시 `content/site.py`의 `INDEXNOW_KEY`만 바꾸고 다시 빌드하세요.
+
+### 구글 — 정식 경로
+
+구글 일반 페이지 색인의 정식 경로는 **Search Console 등록 + `sitemap.xml` 제출**입니다.
+(구글 Indexing API는 공식적으로 JobPosting/BroadcastEvent 전용이며, 일반 페이지 통보는
+`tools/google_indexing.py`로 시도할 수 있으나 보조 수단입니다. `pip install -r tools/requirements.txt` 필요.)
+
+> 참고: 과거의 `google.com/ping?sitemap=`, 빙 ping 엔드포인트는 2023년 폐지되어 동작하지 않습니다.
+> 그래서 빙·네이버는 IndexNow, 구글은 Search Console 경로를 사용합니다.
+
 ## 배포 전 해야 할 일
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경
+1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경 (현재 `https://mapo-massage1.pages.dev`)
 2. `content/site.py`의 텔레그램 링크를 실제 채널 주소로 변경
-3. `python3 build.py` 재실행 (canonical·sitemap·robots.txt에 반영됨)
-4. Google Search Console에 `sitemap.xml` 제출
+3. `python3 build.py` 재실행 (canonical·sitemap·rss·robots·IndexNow 키에 반영됨)
+4. **네이버 서치어드바이저**: 메인페이지 메타 태그로 소유확인 → 사이트 등록 → `sitemap.xml` 제출
+5. **구글 Search Console**: 사이트 등록 → `sitemap.xml` 제출
+6. 배포 후 `python3 tools/indexnow.py` 1회 실행 → 빙·네이버 일괄 통보
