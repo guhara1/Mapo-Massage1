@@ -4,6 +4,9 @@ from .pricing import PRICING
 
 _OG = f"{BASE_URL.rstrip('/')}/assets/og-image.png"
 
+# 네이버 서치어드바이저 사이트 소유 확인 — 메인페이지에만 출력
+_NAVER_VERIFY = '<meta name="naver-site-verification" content="39e28f0359ad150d262d5f11cf62f534f741ed1e" />\n'
+
 _JSONLD = f"""<script type="application/ld+json">
 {{
   "@context": "https://schema.org",
@@ -197,7 +200,7 @@ PAGE = {
     "desc": "마포구 출장마사지·홈타이 예약 전 홍대, 합정, 공덕, 상암 생활권을 확인하세요.",
     "h1": "마포구 출장마사지 · 마포구 홈타이 지역별 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    "extra_head": _NAVER_VERIFY + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }
