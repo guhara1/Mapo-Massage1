@@ -10,7 +10,7 @@ IndexNow는 한 곳에 제출하면 참여 검색엔진끼리 공유하지만, �
   python tools/indexnow.py
 
   # 새 글/수정 글만 즉시 통보
-  python tools/indexnow.py https://mapo-massage1.pages.dev/seoul/mapo/sangam-dong-chuljangmassage/
+  python tools/indexnow.py https://mapo-massage1.netlify.app/seoul/mapo/sangam-dong-chuljangmassage/
   python tools/indexnow.py /seoul/mapo/sangam-dong-chuljangmassage/   # 경로만 줘도 됨
 
   # 미리보기(실제 전송 안 함)

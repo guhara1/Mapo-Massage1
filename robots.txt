@@ -4,10 +4,16 @@ Allow: /
 User-agent: Googlebot
 Allow: /
 
+User-agent: Googlebot-Image
+Allow: /
+
 User-agent: Yeti
+Allow: /
+
+User-agent: Daumoa
 Allow: /
 
 User-agent: bingbot
 Allow: /
 
-Sitemap: https://mapo-massage1.pages.dev/sitemap.xml
+Sitemap: https://mapo-massage1.netlify.app/sitemap.xml
