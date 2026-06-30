@@ -22,9 +22,58 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from content import PAGES
 from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY,
                          TELEGRAM_BUILD, TELEGRAM_PARTNER, INDEXNOW_KEY)
+from content import reviews as REVIEWS_MOD
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 1150
+BASE = BASE_URL.rstrip("/")
+OG_IMAGE = f"{BASE}/assets/og-image.png"
+
+# 코스별 기본 요금(스키마 Offer 용) — content/pricing.py 의 표시 요금과 일치시킨다.
+COURSE_OFFERS = [
+    ("60분 코스", "90000"),
+    ("90분 코스", "150000"),
+    ("120분 코스", "180000"),
+]
+
+# 후기·스키마를 넣지 않는 페이지(정책·소개 성격)
+NO_REVIEW_PATHS = {"about/", "support/privacy/", "support/terms/"}
+# 롱테일 내부링크를 넣지 않는 페이지(법적 고지 성격)
+NO_RELATED_PATHS = {"support/privacy/", "support/terms/"}
+
+# 메인·허브에서 밀어주는 인기 지역(롱테일 앵커) — 자기 자신은 렌더 시 제외한다.
+POPULAR_LONGTAIL = [
+    ("/seoul/mapo/hongik-univ-station-chuljangmassage/", "홍대입구역 출장마사지 24시간 방문 예약"),
+    ("/seoul/mapo/gongdeok-dong-chuljangmassage/", "공덕동 출장마사지 업무지구 홈타이"),
+    ("/seoul/mapo/hapjeong-dong-chuljangmassage/", "합정동 출장마사지 심야 방문 안내"),
+    ("/seoul/mapo/mangwon-dong-chuljangmassage/", "망원동 홈타이 가족 방문 후기"),
+    ("/seoul/mapo/yeonnam-dong-chuljangmassage/", "연남동 출장마사지 경의선숲길 생활권"),
+    ("/seoul/mapo/sangam-dmc-area-chuljangmassage/", "상암DMC 출장마사지 오피스 방문"),
+    ("/seoul/mapo/seogyo-dong-chuljangmassage/", "서교동 홍대 상권 출장마사지 가격"),
+    ("/seoul/mapo/mapo-station-chuljangmassage/", "마포역 출장마사지 한강권 홈타이"),
+]
+
+
+def jsonld_escape(text: str) -> str:
+    """JSON 문자열 값 안에서 깨지지 않도록 최소 이스케이프."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", " ")
+        .strip()
+    )
+
+
+def page_name(page: dict) -> str:
+    """페이지 대표 이름(지역명 등). 브레드크럼 마지막 항목 우선."""
+    crumbs = page.get("breadcrumb") or []
+    if crumbs:
+        return crumbs[-1][0]
+    return BRAND
+
+
+def is_leaf_region(path: str) -> bool:
+    return path.startswith("seoul/mapo/") and path.endswith("-chuljangmassage/")
 
 
 def text_length(body_html: str) -> int:
@@ -108,15 +157,190 @@ def render_toc(items) -> str:
     )
 
 
+def extract_faqs(body: str):
+    """본문의 .faq-item 블록에서 (질문, 답변) 쌍을 추출한다."""
+    faqs = []
+    for block in re.findall(r'<div class="faq-item">(.*?)</div>', body, flags=re.S):
+        qm = re.search(r"<h3>(.*?)</h3>", block, flags=re.S)
+        am = re.search(r"<p>(.*?)</p>", block, flags=re.S)
+        if qm and am:
+            q = re.sub(r"<[^>]+>", "", qm.group(1))
+            a = re.sub(r"<[^>]+>", "", am.group(1))
+            q = html.unescape(re.sub(r"\s+", " ", q)).strip()
+            a = html.unescape(re.sub(r"\s+", " ", a)).strip()
+            if q and a:
+                faqs.append((q, a))
+    return faqs
+
+
+def render_related(page: dict) -> str:
+    """롱테일 주제 내부링크 섹션. 메인 포함 모든 안내 페이지에 출력."""
+    path = page["path"]
+    if path in NO_RELATED_PATHS:
+        return ""
+    name = page_name(page) if is_leaf_region(path) else "마포구"
+    cur = "/" + path
+
+    # 1) 페이지 이름을 엮은 주제(롱테일) 링크 — 페이지마다 앵커가 달라진다.
+    topic = [
+        ("/reservation/", f"{name} 출장마사지 예약 방법·가능 시간"),
+        ("/guide/#cost", f"{name} 홈타이 추가 비용 확인 기준"),
+        ("/checklist/", f"{name} 방문 전 확인사항 체크리스트"),
+        ("/guide/", f"{name} 홈타이란? 이용 가이드"),
+        ("/reservation/#payment", f"{name} 출장마사지 결제 방식 안내"),
+        ("/seoul/mapo/", f"{name} 포함 마포구 전지역 안내"),
+    ]
+    topic_links = "".join(
+        f'<li><a href="{href}">{label}</a></li>'
+        for href, label in topic if href != cur
+    )
+
+    # 2) 인기 지역 롱테일 바로가기 — 자기 자신 제외, 최대 6개.
+    pop = [(h, l) for h, l in POPULAR_LONGTAIL if h != cur][:6]
+    pop_links = "".join(f'<li><a href="{h}">{l}</a></li>' for h, l in pop)
+
+    return (
+        '<section class="related-links" aria-label="함께 보면 좋은 안내">'
+        '<h2>함께 많이 찾는 안내</h2>'
+        '<div class="related-grid">'
+        '<div class="related-col">'
+        f'<p class="related-title">{name} 이용 안내</p>'
+        f'<ul>{topic_links}</ul>'
+        '</div>'
+        '<div class="related-col">'
+        '<p class="related-title">마포구 인기 지역 바로가기</p>'
+        f'<ul>{pop_links}</ul>'
+        '</div>'
+        '</div>'
+        '</section>'
+    )
+
+
+def render_schema(page: dict, canonical: str) -> str:
+    """페이지별 구조화 데이터(JSON-LD). 브레드크럼·지역 서비스(평점·후기)·FAQ."""
+    path = page["path"]
+    name = page_name(page)
+    blocks = []
+
+    # BreadcrumbList — 브레드크럼이 있는 페이지(메인 제외)
+    crumbs = page.get("breadcrumb") or []
+    if crumbs:
+        items = [f'{{ "@type": "ListItem", "position": 1, "name": "홈", "item": "{BASE}/" }}']
+        pos = 2
+        for label, href in crumbs:
+            item = (BASE + href) if href else canonical
+            items.append(
+                f'{{ "@type": "ListItem", "position": {pos}, '
+                f'"name": "{jsonld_escape(label)}", "item": "{item}" }}'
+            )
+            pos += 1
+        blocks.append(
+            '<script type="application/ld+json">\n'
+            '{ "@context": "https://schema.org", "@type": "BreadcrumbList",'
+            ' "itemListElement": [' + ", ".join(items) + "] }\n</script>"
+        )
+
+    # LocalBusiness (+ 평점·후기 + 코스 Offer)
+    show_reviews = path not in NO_REVIEW_PATHS and bool(REVIEWS_MOD.REVIEWS)
+    area = "서울특별시 마포구" + (f" {name}" if is_leaf_region(path) else "")
+    biz_name = f"{BRAND} — {name} 출장마사지·홈타이" if is_leaf_region(path) else f"{BRAND} 마포구 출장마사지·홈타이"
+
+    offers = ", ".join(
+        '{ "@type": "Offer", "name": "%s", "price": "%s", "priceCurrency": "KRW", '
+        '"availability": "https://schema.org/InStock" }' % (n, p)
+        for n, p in COURSE_OFFERS
+    )
+
+    biz = [
+        '"@context": "https://schema.org"',
+        '"@type": "LocalBusiness"',
+        '"@id": "%s#business"' % canonical,
+        '"name": "%s"' % jsonld_escape(biz_name),
+        '"url": "%s"' % canonical,
+        '"telephone": "%s"' % PHONE,
+        '"image": "%s"' % OG_IMAGE,
+        '"priceRange": "₩₩"',
+        '"currenciesAccepted": "KRW"',
+        '"openingHours": "Mo-Su 00:00-24:00"',
+        '"areaServed": { "@type": "AdministrativeArea", "name": "%s" }' % area,
+        '"address": { "@type": "PostalAddress", "addressRegion": "서울특별시", '
+        '"addressLocality": "마포구", "addressCountry": "KR" }',
+        '"makesOffer": [%s]' % offers,
+    ]
+    if show_reviews:
+        biz.append(
+            '"aggregateRating": { "@type": "AggregateRating", '
+            '"ratingValue": "%s", "reviewCount": "%s", "bestRating": "%s", "worstRating": "%s" }'
+            % (REVIEWS_MOD.RATING_VALUE, REVIEWS_MOD.RATING_COUNT,
+               REVIEWS_MOD.RATING_BEST, REVIEWS_MOD.RATING_WORST)
+        )
+        rev_nodes = []
+        for r in REVIEWS_MOD.REVIEWS:
+            rev_nodes.append(
+                '{ "@type": "Review", '
+                '"author": { "@type": "Person", "name": "%s" }, '
+                '"datePublished": "%s", '
+                '"reviewRating": { "@type": "Rating", "ratingValue": "%s", "bestRating": "5", "worstRating": "1" }, '
+                '"reviewBody": "%s" }'
+                % (jsonld_escape(r["author"]), r["date"], r["rating"], jsonld_escape(r["body"]))
+            )
+        biz.append('"review": [%s]' % ", ".join(rev_nodes))
+    blocks.append(
+        '<script type="application/ld+json">\n{' + ", ".join(biz) + "}\n</script>"
+    )
+
+    # FAQPage — 본문 .faq-item 자동 추출(이미 FAQ 스키마가 있는 메인은 추출 결과 없음)
+    faqs = extract_faqs(page["body"])
+    if faqs:
+        q_nodes = ", ".join(
+            '{ "@type": "Question", "name": "%s", "acceptedAnswer": '
+            '{ "@type": "Answer", "text": "%s" } }'
+            % (jsonld_escape(q), jsonld_escape(a))
+            for q, a in faqs
+        )
+        blocks.append(
+            '<script type="application/ld+json">\n'
+            '{ "@context": "https://schema.org", "@type": "FAQPage", '
+            '"mainEntity": [' + q_nodes + "] }\n</script>"
+        )
+
+    return "\n".join(blocks) + "\n"
+
+
+def augment_body(page: dict) -> str:
+    """본문에 '이용 후기'와 '함께 많이 찾는 안내(롱테일 내부링크)'를 끼워 넣는다.
+    공용 요금 블록(pricing) 앞, 없으면 CTA 앞, 그래도 없으면 끝에 붙인다."""
+    path = page["path"]
+    body = page["body"]
+    extra = ""
+    if path not in NO_REVIEW_PATHS and REVIEWS_MOD.REVIEWS:
+        extra += REVIEWS_MOD.reviews_section()
+    extra += render_related(page)
+    if not extra:
+        return body
+    idx = body.find('<section class="pricing">')
+    if idx == -1:
+        idx = body.find('<section class="cta">')
+    if idx == -1:
+        return body + extra
+    return body[:idx] + extra + body[idx:]
+
+
 def render_page(page: dict) -> str:
     path = page["path"]
     title = page["title"]
     desc = page["desc"]
     h1 = page["h1"]
-    body = page["body"]
     crumbs = page.get("breadcrumb") or []
-    extra_head = page.get("extra_head", "")
     hero = page.get("hero", "")
+    canonical = BASE + "/" + path
+
+    # 후기·롱테일 내부링크 섹션을 본문에 주입(이후 색인 글자수 계산과 일치하도록 mutate).
+    page["body"] = augment_body(page)
+    body = page["body"]
+
+    # 페이지별 구조화 데이터(JSON-LD)를 head 에 더한다.
+    extra_head = page.get("extra_head", "") + render_schema(page, canonical)
 
     chars = text_length(body)
     noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
@@ -125,7 +349,6 @@ def render_page(page: dict) -> str:
         if noindex
         else '<meta name="robots" content="index,follow">'
     )
-    canonical = BASE_URL.rstrip("/") + "/" + path
 
     # 히어로가 있는 페이지(메인)는 H1을 히어로 안에서 출력한다.
     if hero:
@@ -288,10 +511,12 @@ def build() -> None:
     # sitemap.xml — 메인 우선순위 1.0, 그 외 0.8, lastmod 포함
     rows = []
     for loc, _, _ in indexed:
-        prio = "1.0" if loc.rstrip("/") == base else "0.8"
+        is_home = loc.rstrip("/") == base
+        prio = "1.0" if is_home else "0.8"
+        freq = "daily" if is_home else "weekly"
         rows.append(
             f"  <url><loc>{loc}</loc><lastmod>{lastmod}</lastmod>"
-            f"<changefreq>weekly</changefreq><priority>{prio}</priority></url>"
+            f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
         )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
@@ -327,12 +552,15 @@ def build() -> None:
             "  </channel>\n</rss>\n"
         )
 
-    # robots.txt — 전체 허용 + 주요 봇 명시(구글봇·네이버 Yeti·빙봇) + 사이트맵
+    # robots.txt — 전체 허용 + 주요 봇 명시(구글봇·네이버 Yeti·빙봇·다음) + 사이트맵
+    # 빠른 색인을 위해 색인 봇을 막지 않고 사이트맵 위치를 명시한다.
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
             "User-agent: *\nAllow: /\n\n"
             "User-agent: Googlebot\nAllow: /\n\n"
-            "User-agent: Yeti\nAllow: /\n\n"
+            "User-agent: Googlebot-Image\nAllow: /\n\n"
+            "User-agent: Yeti\nAllow: /\n\n"          # 네이버
+            "User-agent: Daumoa\nAllow: /\n\n"        # 다음/카카오
             "User-agent: bingbot\nAllow: /\n\n"
             f"Sitemap: {base}/sitemap.xml\n"
         )

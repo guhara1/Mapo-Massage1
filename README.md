@@ -86,7 +86,7 @@ python3 tools/indexnow.py --dry-run
 
 ## 배포 전 해야 할 일
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경 (현재 `https://mapo-massage1.pages.dev`)
+1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경 (현재 `https://mapo-massage1.netlify.app`)
 2. `content/site.py`의 텔레그램 링크를 실제 채널 주소로 변경
 3. `python3 build.py` 재실행 (canonical·sitemap·rss·robots·IndexNow 키에 반영됨)
 4. **네이버 서치어드바이저**: 메인페이지 메타 태그로 소유확인 → 사이트 등록 → `sitemap.xml` 제출

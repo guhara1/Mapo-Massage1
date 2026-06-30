@@ -5,7 +5,11 @@ from .pricing import PRICING
 _OG = f"{BASE_URL.rstrip('/')}/assets/og-image.png"
 
 # 네이버 서치어드바이저 사이트 소유 확인 — 메인페이지에만 출력
-_NAVER_VERIFY = '<meta name="naver-site-verification" content="39e28f0359ad150d262d5f11cf62f534f741ed1e" />\n'
+# 도메인 변경(netlify) 신규 속성 + 기존 속성 모두 유지해 소유 확인이 끊기지 않도록 둘 다 출력한다.
+_NAVER_VERIFY = (
+    '<meta name="naver-site-verification" content="ec59854bbfc31862b16465fa8985e8bc7512d853" />\n'
+    '<meta name="naver-site-verification" content="39e28f0359ad150d262d5f11cf62f534f741ed1e" />\n'
+)
 
 _JSONLD = f"""<script type="application/ld+json">
 {{
